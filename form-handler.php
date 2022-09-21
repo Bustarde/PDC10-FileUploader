@@ -1,6 +1,6 @@
 <?php
 
-class File
+class Registration
 {
 	protected $id;
 	protected $complete_name;
@@ -8,17 +8,14 @@ class File
 	protected $password;
 	protected $picture_path;
 
-	const TYPE_DOCUMENT = 'document';
 	const TYPE_IMAGE = 'image';
-
-	const DIRECTORY_DOCUMENTS = 'documents/';
 	const DIRECTORY_IMAGES = 'images/';
 
 	public function __construct(
 		$complete_name,
         $email,
         $password,
-		$picture_path,
+		$picture_path = null
 	)
 
 	{
@@ -48,19 +45,26 @@ class File
 		return $this->picture_path;
 	}
 
+	public static function encryptPass($pass){
+		$encrypted_pass = md5($pass);
+		return [
+			'password' => $encrypted_pass,
+		];
+	}
+
 	public function save()
 	{
 		global $pdo;
 		try {
 
-			$sql = "INSERT INTO registrations SET complete_name=:complete_name, email=:email, password=:password, picture_path=:path";
+			$sql = "INSERT INTO registrations SET complete_name=:complete_name, email=:email, password=:password, picture_path=:picture_path";
 			$statement = $pdo->prepare($sql);
 
 			return $statement->execute([
 				':complete_name' => $this->getName(),
 				':email' => $this->getEmail(),
 				':password' => $this->getPassword(),
-                'path' => $this->getPath()
+                ':picture_path' => $this->getPath()
 			]);
 
 		} catch (Exception $e) {
@@ -68,24 +72,20 @@ class File
 		}
 	}
 
-	public static function handleUpload($fileObject)
+	public static function handleUpload($object)
 	{
 		try {
-			$base_dir = getcwd() . '/';
-			$target_dir = $base_dir . static::DIRECTORY_DOCUMENTS;
 
-			$check = getimagesize($fileObject['tmp_name']);
+			$check = getimagesize($object['tmp_name']);
 			if ($check !== false) {
-				$target_dir = $base_dir . static::DIRECTORY_IMAGES;
+				$target_dir = static::DIRECTORY_IMAGES;
 			}
 
-			if (is_uploaded_file($fileObject['tmp_name'])) {
-				$target_file_path = $target_dir . $fileObject['name'];
-				if (move_uploaded_file($fileObject['tmp_name'], $target_file_path)) {
-					$file_type = static::TYPE_DOCUMENT;
-					if (strpos($target_file_path, static::DIRECTORY_IMAGES)) {
+			if (is_uploaded_file($object['tmp_name'])) {
+				$target_file_path = $target_dir . $object['name'];
+				if (move_uploaded_file($object['tmp_name'], $target_file_path)) {
 						$file_type = static::TYPE_IMAGE;
-					}
+			
 					return [
 						'path' => $target_file_path
 					];
@@ -95,5 +95,19 @@ class File
 			error_log($e->getMessage());
 			return false;
 		}
+	}
+
+	public static function retrieveReg(){
+		global $pdo;
+
+		$stm = $pdo->prepare(
+			"SELECT * FROM registrations"
+		);
+
+		$stm->execute();
+
+		$registrations = $stm->fetchAll();
+		
+		return $registrations;
 	}
 }
